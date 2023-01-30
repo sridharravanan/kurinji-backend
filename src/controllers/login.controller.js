@@ -1,12 +1,18 @@
 'use strict';
-const User = require('../models/user.model');
+require('dotenv/config');
+const Admin = require('../models/admin.model');
 const Token = require('../helpers/token');
 const validator = require('../helpers/validate');
 const jwt = require('jsonwebtoken');
+const {LOGIN} = require('./../../config/response');
+
+let CryptoJS = require("crypto-js");
+const {JWT_SECRET_KEY, JWT_EXPIRY} = process.env;
 
 exports.login = function(req, res) {
     const validationRule = {
         "email": "required|email",
+        "password": "required"
     };
     validator(req.body, validationRule, {}, (err, status) => {
         if (!status) {
@@ -17,30 +23,38 @@ exports.login = function(req, res) {
                 data: err
             });
     } else {
-        const { email } = req.body;
-        User.getUser(email, function(err, user) {
-            if(err){
+        const { email, password } = req.body;
+        Admin.getAdminUser(email, function(err, admin) {
+            if(err || admin?.length == 0){
                 res.status(412)
                     .send({
                         success: false,
-                        message: 'User Name invalid',
+                        message: LOGIN?.failure?.invalidUsername,
                         data: err
                     });
-            }
-                
-            if(user){
-                const result = Object.values(JSON.parse(JSON.stringify(user)));
-                console.log(result[0].id)
-                console.log(Token.token)
+            }else{
+                const adminUser = Object.values(JSON.parse(JSON.stringify(admin)))[0];
+                //password Decrypt
+                const bytes  = CryptoJS.AES.decrypt(adminUser.password, JWT_SECRET_KEY);
+                if(bytes.toString(CryptoJS.enc.Utf8) !== password){
+                    res.status(412)
+                    .send({
+                        success: false,
+                        message: LOGIN?.failure?.invalidPassword,
+                        data: err
+                    });
+
+                }else{
                 // Generate an access token
-                const accessToken = jwt.sign({ id: result[0].id}, Token.token,{expiresIn: Token.expiry });
-                res.status(412)
+                const accessToken = jwt.sign({ id: adminUser.id}, JWT_SECRET_KEY,{expiresIn: JWT_EXPIRY });
+                res.status(200)
                     .send({
                         success: true,
-                        message: 'Token',
+                        message: LOGIN?.success.loginSuccess,
                         data: accessToken
                     });
-            }
+                }
+            }           
         })
     }
 });

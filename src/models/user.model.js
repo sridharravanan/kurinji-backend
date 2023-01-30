@@ -66,7 +66,7 @@ User.delete = function(id, result){
         }
     });
 };
-User.getUser = function (email, result) {
+User.getUser = function (email, password, result) {
     console.log(email)
     dbConn.query("Select * from users WHERE email = ? ", [email], function (err, res) {
         if(err) {
